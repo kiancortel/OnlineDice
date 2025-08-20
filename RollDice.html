@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ONLINE DICE</title>
+
+  <!-- Fun cartoon font for the title -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Montserrat:wght@600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg1:#5cc3ff;
+      --bg2:#3aa1f3;
+      --panel:#ffffff;
+      --panelText:#2a2a2a;
+      --accent:#ffd54d;
+      --accentEdge:#ffb300;
+      --dieSize:110px;
+      --dieRadius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      /* blue gradient background like the sample */
+      background: radial-gradient(1200px 600px at 50% -10%, #7fd4ff 0%, var(--bg1) 35%, var(--bg2) 100%);
+      color:#fff;
+      font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      overflow-x:hidden;
+    }
+
+    /* subtle floating dice pattern */
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      background-image:
+        radial-gradient(transparent 58%, rgba(255,255,255,.08) 60%, transparent 62%),
+        radial-gradient(transparent 58%, rgba(255,255,255,.06) 60%, transparent 62%);
+      background-size:160px 160px, 200px 200px;
+      background-position:0 0, 80px 60px;
+      opacity:.35;
+      pointer-events:none;
+    }
+
+    header{
+      width:100%;
+      max-width:1000px;
+      padding:28px 20px 10px;
+      text-align:center;
+    }
+
+    .title{
+      font-family:"Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size:56px;
+      letter-spacing:2px;
+      margin:0 0 16px;
+      color:#fff7c7;
+      text-shadow:
+        0 3px 0 #fff,
+        0 6px 0 #ffd54d,
+        0 10px 18px rgba(0,0,0,.35);
+      -webkit-font-smoothing:antialiased;
+      user-select:none;
+    }
+
+    .toolbar{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      align-items:center;
+      flex-wrap:wrap;
+      margin:0 auto 6px;
+    }
+
+    .select{
+      position:relative;
+      background:#e9f4ff;
+      color:#10518f;
+      border-radius:8px;
+      padding:10px 42px 10px 14px;
+      min-width:160px;
+      font-weight:700;
+      border:2px solid rgba(16,81,143,.18);
+      box-shadow:0 6px 0 rgba(0,0,0,.08);
+      user-select:none;
+    }
+    .select[aria-disabled="true"]{opacity:.9}
+    .select::after{
+      content:"▾";
+      position:absolute;
+      right:12px; top:50%;
+      transform:translateY(-50%);
+      font-size:18px;
+      color:#10518f;
+      pointer-events:none;
+    }
+
+    .roll-btn{
+      appearance:none;
+      border:none;
+      background:linear-gradient(#ffe082, var(--accent));
+      color:#2b2100;
+      font-weight:800;
+      padding:12px 22px;
+      border-radius:12px;
+      box-shadow:0 6px 0 var(--accentEdge), 0 10px 20px rgba(0,0,0,.25);
+      cursor:pointer;
+      transition:transform .08s ease, box-shadow .08s ease, opacity .2s ease;
+      letter-spacing:.5px;
+    }
+    .roll-btn:active{ transform:translateY(2px); box-shadow:0 4px 0 var(--accentEdge), 0 8px 16px rgba(0,0,0,.25); }
+    .roll-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+    main{
+      width:100%;
+      max-width:900px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:18px 20px 60px;
+    }
+
+    .dice-row{
+      display:flex;
+      gap:18px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    /* die container */
+    .die{
+      width:var(--dieSize);
+      height:var(--dieSize);
+      border-radius:var(--dieRadius);
+      position:relative;
+      transform-style:preserve-3d;
+      transition:transform .9s cubic-bezier(.2,.75,.2,1);
+      box-shadow:
+        inset 0 -8px 0 rgba(0,0,0,.12),
+        0 10px 20px rgba(0,0,0,.35);
+    }
+
+    /* color variants close to screenshot */
+    .c-orange{ background:#ffb429; }
+    .c-purple{ background:#6a1b9a; }
+    .c-green { background:#2e7d32; }
+    .c-blue  { background:#1e88e5; }
+    .c-yellow{ background:#ffea00; }
+
+    /* pips grid (7 spots) */
+    .pips{
+      position:absolute; inset:10%;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      grid-template-rows:repeat(3,1fr);
+      place-items:center;
+    }
+    .pip{
+      width:18%;
+      aspect-ratio:1/1;
+      background:#fff;
+      border-radius:50%;
+      box-shadow:0 1px 0 rgba(0,0,0,.2), inset 0 -2px 0 rgba(0,0,0,.15);
+    }
+
+    /* faces by value: show only needed pips */
+    .die[data-val="1"] .pip:not(.p5){display:none}
+    .die[data-val="2"] .pip:not(.p1,.p9){display:none}
+    .die[data-val="3"] .pip:not(.p1,.p5,.p9){display:none}
+    .die[data-val="4"] .pip:not(.p1,.p3,.p7,.p9){display:none}
+    .die[data-val="5"] .pip:not(.p1,.p3,.p5,.p7,.p9){display:none}
+    .die[data-val="6"] .pip:not(.p1,.p3,.p4,.p6,.p7,.p9){display:none}
+
+    /* spin animation during roll */
+    .rolling{
+      animation: wobble .35s ease-in-out infinite alternate;
+    }
+    @keyframes wobble{
+      from{ transform:rotateX(16deg) rotateY(-16deg) }
+      to  { transform:rotateX(-14deg) rotateY(18deg) }
+    }
+
+    footer{
+      opacity:.7; font-size:12px; padding-bottom:28px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- sounds -->
+  <audio id="drumSound" src="https://cdn.pixabay.com/download/audio/2022/08/26/audio_79f785d8b3.mp3?filename=drum-loop-13723.mp3" preload="auto"></audio>
+  <audio id="clapSound" src="C:\Users\Kian\OneDrive\Desktop\Roll Dice\re-stop-dj-fx-344126.mp3" preload="auto"></audio>
+
+  <header>
+    <h1 class="title">ONLINE DICE</h1>
+
+    <!-- top toolbar like the screenshot (dropdowns are decorative & locked) -->
+    <div class="toolbar">
+      <div class="select" aria-disabled="true">3 DICE</div>
+      <div class="select" aria-disabled="true">COLOR DICE</div>
+      <button id="rollBtn" class="roll-btn">ROLL</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="dice-row" id="diceRow">
+      <!-- 3 dice -->
+      <div class="die c-orange" data-val="1" id="d1">
+        <div class="pips">
+          <div class="pip p1" style="grid-area:1/1"></div>
+          <div class="pip p2" style="grid-area:1/2"></div>
+          <div class="pip p3" style="grid-area:1/3"></div>
+          <div class="pip p4" style="grid-area:2/1"></div>
+          <div class="pip p5" style="grid-area:2/2"></div>
+          <div class="pip p6" style="grid-area:2/3"></div>
+          <div class="pip p7" style="grid-area:3/1"></div>
+          <div class="pip p8" style="grid-area:3/2"></div>
+          <div class="pip p9" style="grid-area:3/3"></div>
+        </div>
+      </div>
+
+      <div class="die c-purple" data-val="1" id="d2">
+        <div class="pips">
+          <div class="pip p1" style="grid-area:1/1"></div>
+          <div class="pip p2" style="grid-area:1/2"></div>
+          <div class="pip p3" style="grid-area:1/3"></div>
+          <div class="pip p4" style="grid-area:2/1"></div>
+          <div class="pip p5" style="grid-area:2/2"></div>
+          <div class="pip p6" style="grid-area:2/3"></div>
+          <div class="pip p7" style="grid-area:3/1"></div>
+          <div class="pip p8" style="grid-area:3/2"></div>
+          <div class="pip p9" style="grid-area:3/3"></div>
+        </div>
+      </div>
+
+      <div class="die c-green" data-val="1" id="d3">
+        <div class="pips">
+          <div class="pip p1" style="grid-area:1/1"></div>
+          <div class="pip p2" style="grid-area:1/2"></div>
+          <div class="pip p3" style="grid-area:1/3"></div>
+          <div class="pip p4" style="grid-area:2/1"></div>
+          <div class="pip p5" style="grid-area:2/2"></div>
+          <div class="pip p6" style="grid-area:2/3"></div>
+          <div class="pip p7" style="grid-area:3/1"></div>
+          <div class="pip p8" style="grid-area:3/2"></div>
+          <div class="pip p9" style="grid-area:3/3"></div>
+        </div>
+      </div>
+      <div class="die c-green" data-val="1" id="d4">
+        <div class="pips">
+          <div class="pip p1" style="grid-area:1/1"></div>
+          <div class="pip p2" style="grid-area:1/2"></div>
+          <div class="pip p3" style="grid-area:1/3"></div>
+          <div class="pip p4" style="grid-area:2/1"></div>
+          <div class="pip p5" style="grid-area:2/2"></div>
+          <div class="pip p6" style="grid-area:2/3"></div>
+          <div class="pip p7" style="grid-area:3/1"></div>
+          <div class="pip p8" style="grid-area:3/2"></div>
+          <div class="pip p9" style="grid-area:3/3"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>Click ROLL to spin. Sounds included.</footer>
+
+ <script>
+const rollBtn = document.getElementById('rollBtn');
+const drum = document.getElementById('drumSound');
+const clap = document.getElementById('clapSound');
+const dice = [
+  document.getElementById('d1'),
+  document.getElementById('d2'),
+  document.getElementById('d3'),
+  document.getElementById('d4')
+];
+
+// All color classes
+const colorClasses = ['c-orange', 'c-purple', 'c-green', 'c-blue', 'c-yellow'];
+
+// Key to color class mapping
+const keyColorMap = {
+  'o': 'c-orange',
+  'p': 'c-purple',
+  'g': 'c-green',
+  'b': 'c-blue',
+  'y': 'c-yellow'
+};
+
+// Start with all colors enabled
+let enabledColors = {
+  'c-orange': true,
+  'c-purple': true,
+  'c-green': true,
+  'c-blue': true,
+  'c-yellow': true
+};
+
+// Get a random int between min and max
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Pick a random color from enabled ones (avoid same as current if possible)
+function randomColorClass(current) {
+  let available = colorClasses.filter(c => enabledColors[c]);
+  if (available.length === 0) available = colorClasses; // fallback if all are disabled
+
+  let newColor;
+  do {
+    newColor = available[randInt(0, available.length - 1)];
+  } while (newColor === current && available.length > 1);
+  return newColor;
+}
+
+// Dice roll logic
+async function roll() {
+  rollBtn.disabled = true;
+  drum.loop = true;
+  drum.currentTime = 0;
+  try { await drum.play(); } catch (e) {}
+
+  const rollDuration = 8000;  // Changed from 1400 to 8000 for 8 seconds
+  const tickEvery = 120;
+
+  dice.forEach(d => d.classList.add('rolling'));
+
+  const ticker = setInterval(() => {
+    dice.forEach(d => {
+      const newVal = randInt(1, 6);
+      d.setAttribute('data-val', newVal);
+
+      const oldColor = colorClasses.find(c => d.classList.contains(c));
+      if (oldColor) d.classList.remove(oldColor);
+
+      const newColor = randomColorClass(oldColor);
+      d.classList.add(newColor);
+
+      const rx = randInt(-25, 25);
+      const ry = randInt(-25, 25);
+      d.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+  }, tickEvery);
+
+const shine = document.getElementById('clapSound');
+
+setTimeout(async () => {
+  clearInterval(ticker);
+
+  dice.forEach(d => {
+    d.classList.remove('rolling');
+    d.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    const newVal = randInt(1, 6);
+    d.setAttribute('data-val', newVal);
+
+    const oldColor = colorClasses.find(c => d.classList.contains(c));
+    if (oldColor) d.classList.remove(oldColor);
+
+    const newColor = randomColorClass(oldColor);
+    d.classList.add(newColor);
+  });
+
+  shine.currentTime = 0;
+  try {
+    await shine.play();
+  } catch (e) {
+    console.error("Failed to play sound:", e);
+  }
+
+  rollBtn.disabled = false;
+}, rollDuration);
+
+}
+
+// Trigger roll on button click
+rollBtn.addEventListener('click', roll);
+
+// Handle key presses to disable only one color at a time
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  if (keyColorMap[key]) {
+    // Enable all colors first
+    colorClasses.forEach(c => enabledColors[c] = true);
+
+    // Then disable the one matching the key
+    const colorToDisable = keyColorMap[key];
+    enabledColors[colorToDisable] = false;
+
+    console.log(`Color "${colorToDisable}" is disabled. Others are enabled.`);
+  }
+});
+
+// Set initial values
+dice.forEach(d => d.setAttribute('data-val', '1'));
+</script>
+
+
+</body>
+</html>
